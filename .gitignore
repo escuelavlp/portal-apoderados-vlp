@@ -1,0 +1,16 @@
+# Dependencias Node (si se agregan en el futuro)
+node_modules/
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Archivos temporales
+*.log
+*.tmp
+*.bak
+
+# Variables de entorno locales
+.env
+.env.local

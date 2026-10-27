@@ -1,0 +1,18 @@
+{
+  "name": "Portal Apoderados - Escuela Villa Las Peñas",
+  "short_name": "Villa Las Peñas",
+  "description": "Consulta de calificaciones y registro de atrasos para apoderados de la Escuela Villa Las Peñas",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#1e3a8a",
+  "icons": [
+    {
+      "src": "assets/insignia.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

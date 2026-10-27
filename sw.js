@@ -1,0 +1,57 @@
+// Service Worker para Portal Apoderados - Escuela Villa Las Peñas
+const CACHE_NAME = 'villa-las-penas-apoderados-v2';
+const ASSETS_TO_CACHE = [
+  './',
+  './index.html',
+  './css/styles.css',
+  './js/app.js',
+  './manifest.json',
+  './assets/insignia.png'
+];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(ASSETS_TO_CACHE).catch(err => {
+        console.warn('Cache addAll warning:', err);
+      });
+    })
+  );
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) => {
+      return Promise.all(
+        keys.map((key) => {
+          if (key !== CACHE_NAME) {
+            return caches.delete(key);
+          }
+        })
+      );
+    })
+  );
+  self.clients.claim();
+});
+
+// Network first, fallback to cache for static assets, network only for API
+self.addEventListener('fetch', (event) => {
+  if (event.request.url.includes('supabase.co')) {
+    // Permitir que el navegador maneje las peticiones a Supabase directamente
+    return;
+  }
+
+  event.respondWith(
+    fetch(event.request)
+      .then((response) => {
+        // Guardar copia en cache si es estático válido
+        if (response.status === 200 && event.request.method === 'GET') {
+          const respClone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, respClone));
+        }
+        return response;
+      })
+      .catch(() => caches.match(event.request))
+  );
+});

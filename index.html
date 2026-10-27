@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Portal Apoderados - Escuela Villa Las Peñas</title>
+  
+  <!-- PWA & Mobile Meta Tags -->
+  <meta name="theme-color" content="#1e3a8a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Villa Las Peñas">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="assets/insignia.png">
+  <link rel="apple-touch-icon" href="assets/insignia.png">
+  
+  <!-- Google Fonts: Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- App Container (Mobile viewport frame) -->
+  <div id="app" class="app-container">
+    
+    <!-- Top Header Bar -->
+    <header class="app-header">
+      <div class="header-content">
+        <div class="brand">
+          <img src="assets/insignia.png" alt="Insignia Escuela Villa Las Peñas" class="school-logo">
+          <div class="brand-text">
+            <h1 class="school-title">Villa Las Peñas</h1>
+            <span class="portal-badge">Portal Apoderados</span>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button id="btnRefresh" class="icon-btn" title="Actualizar datos" aria-label="Actualizar">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Multi-Student Switcher Bar (Visible when students are linked) -->
+      <div id="studentsBar" class="students-bar" style="display: none;">
+        <div class="students-scroll" id="studentsListChips">
+          <!-- Chips generated dynamically -->
+        </div>
+        <button id="btnAddAnotherStudent" class="chip-add-btn" title="Vincular otro hijo">
+          <span>+ Vincular Hijo</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Dynamic Content -->
+    <main class="app-main">
+
+      <!-- View 0: No Student / Login & Link Screen -->
+      <section id="viewLinkStudent" class="view-section active">
+        <div class="link-card">
+          <div class="link-hero">
+            <img src="assets/insignia.png" alt="Insignia" class="hero-logo">
+            <h2>Acceso a Información Escolar</h2>
+            <p class="subtitle">Consulta las calificaciones actualizadas y los registros de atrasos de tus hijos en tiempo real.</p>
+          </div>
+
+          <form id="formLinkStudent" class="link-form" autocomplete="off">
+            <div class="form-group">
+              <label for="inputRutStudent">RUT del Estudiante</label>
+              <div class="input-wrapper">
+                <input 
+                  type="text" 
+                  id="inputRutStudent" 
+                  name="rut"
+                  placeholder="Ej: 24.221.613-K" 
+                  maxlength="12"
+                  inputmode="text" 
+                  required
+                >
+                <span class="input-icon">🆔</span>
+              </div>
+              <small class="helper-text">Ingresa el RUT con o sin puntos y guión.</small>
+            </div>
+
+            <div class="form-group">
+              <label for="selectCourseVerify">Curso del Estudiante <span class="optional-tag">(Opcional para confirmar)</span></label>
+              <div class="input-wrapper">
+                <select id="selectCourseVerify">
+                  <option value="">Cualquier curso / No estoy seguro</option>
+                  <option value="1° Básico A">1° Básico A</option>
+                  <option value="2° Básico A">2° Básico A</option>
+                  <option value="3° Básico A">3° Básico A</option>
+                  <option value="4° Básico A">4° Básico A</option>
+                  <option value="5° Básico A">5° Básico A</option>
+                  <option value="6° Básico A">6° Básico A</option>
+                  <option value="7° Básico A">7° Básico A</option>
+                  <option value="8° Básico A">8° Básico A</option>
+                </select>
+                <span class="input-icon">📚</span>
+              </div>
+            </div>
+
+            <div id="linkErrorMsg" class="alert-box alert-error" style="display: none;"></div>
+
+            <button type="submit" id="btnSubmitLink" class="btn btn-primary btn-block">
+              <span class="btn-text">🔍 Consultar y Vincular Estudiante</span>
+              <span class="btn-spinner" style="display: none;"></span>
+            </button>
+          </form>
+
+          <div class="link-footer-note">
+            <div class="note-icon">🔒</div>
+            <div class="note-text">
+              <strong>100% Seguro y Privado:</strong> Los estudiantes vinculados quedarán guardados en tu teléfono para que no tengas que volver a buscarlos.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- View 1: Student Dashboard (Tabs: Notas, Atrasos, Ficha) -->
+      <section id="viewDashboard" class="view-section" style="display: none;">
+
+        <!-- Active Student Info Header Card -->
+        <div class="student-profile-card">
+          <div class="profile-avatar">
+            <span id="studentAvatarText">AL</span>
+          </div>
+          <div class="profile-details">
+            <h2 id="studentFullName">Nombre del Alumno</h2>
+            <div class="profile-meta">
+              <span id="studentCourseBadge" class="badge badge-course">8° Básico A</span>
+              <span id="studentRutBadge" class="badge badge-rut">24.221.613-K</span>
+              <span id="studentListNumBadge" class="badge badge-subtle">N° Lista 12</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Segmented Tab Navigation -->
+        <nav class="segmented-tabs" role="tablist">
+          <button class="tab-btn active" data-tab="tabNotas" role="tab" aria-selected="true">
+            <span class="tab-icon">📊</span>
+            <span class="tab-label">Calificaciones</span>
+          </button>
+          <button class="tab-btn" data-tab="tabAtrasos" role="tab" aria-selected="false">
+            <span class="tab-icon">⏰</span>
+            <span class="tab-label">Atrasos</span>
+            <span id="badgeAtrasosCount" class="tab-counter-badge" style="display: none;">0</span>
+          </button>
+          <button class="tab-btn" data-tab="tabFicha" role="tab" aria-selected="false">
+            <span class="tab-icon">ℹ️</span>
+            <span class="tab-label">Ficha Alumno</span>
+          </button>
+        </nav>
+
+        <!-- Tab 1: Calificaciones (Notas) -->
+        <div id="tabNotas" class="tab-content active">
+          
+          <!-- Semester Selector Pill -->
+          <div class="semester-bar">
+            <span class="semester-label">Período:</span>
+            <div class="semester-pills">
+              <button class="pill-btn active" data-sem="1">1° Semestre</button>
+              <button class="pill-btn" data-sem="2">2° Semestre</button>
+            </div>
+          </div>
+
+          <!-- General Average Summary Card -->
+          <div class="promedio-general-card">
+            <div class="promedio-circle-wrapper">
+              <div class="promedio-circle" id="circlePromedioGeneral">
+                <span id="lblPromedioGeneral">--</span>
+              </div>
+            </div>
+            <div class="promedio-info">
+              <span class="promedio-title">Promedio General</span>
+              <span id="lblPromedioSemestre" class="promedio-sub">1° Semestre</span>
+              <span id="lblEstadoPromedio" class="promedio-status status-good">Cargando...</span>
+            </div>
+          </div>
+
+          <!-- Grades List -->
+          <div class="section-title-bar">
+            <h3>Detalle por Asignatura</h3>
+            <span id="lblTotalAsignaturas" class="badge-count">0 asignaturas</span>
+          </div>
+
+          <div id="listGradesCards" class="grades-list">
+            <!-- Cards populated by JS -->
+          </div>
+
+          <div id="gradesEmptyState" class="empty-state" style="display: none;">
+            <div class="empty-icon">📝</div>
+            <h4>Sin calificaciones registradas</h4>
+            <p>Aún no se han ingresado notas para el período seleccionado.</p>
+          </div>
+        </div>
+
+        <!-- Tab 2: Atrasos -->
+        <div id="tabAtrasos" class="tab-content" style="display: none;">
+          
+          <!-- Summary Card -->
+          <div id="cardAtrasosSummary" class="atrasos-summary-card good">
+            <div class="atrasos-stat-icon" id="iconAtrasoStatus">✅</div>
+            <div class="atrasos-stat-info">
+              <div class="atrasos-num" id="lblTotalAtrasosCount">0</div>
+              <div class="atrasos-title">Atrasos acumulados</div>
+              <p class="atrasos-desc" id="lblAtrasosMessage">¡Felicitaciones! El estudiante no presenta atrasos registrados.</p>
+            </div>
+          </div>
+
+          <!-- Alert for 3+ delays -->
+          <div id="alertAtrasosReiterados" class="alert-box alert-warning" style="display: none;">
+            <div class="alert-icon">⚠️</div>
+            <div class="alert-text">
+              <strong>Atención Apoderado:</strong> El estudiante acumula 3 o más atrasos. Recuerde que la puntualidad es formativa para el proceso escolar.
+            </div>
+          </div>
+
+          <!-- Delay History List -->
+          <div class="section-title-bar">
+            <h3>Historial de Atrasos</h3>
+            <span id="lblTotalAtrasosBadge" class="badge-count">0 registros</span>
+          </div>
+
+          <div id="listAtrasosTimeline" class="atrasos-timeline">
+            <!-- Items populated by JS -->
+          </div>
+
+          <div id="atrasosEmptyState" class="empty-state" style="display: none;">
+            <div class="empty-icon">🎉</div>
+            <h4>Sin registros de atrasos</h4>
+            <p>El estudiante mantiene una asistencia puntual y sin observaciones de llegada tarde.</p>
+          </div>
+        </div>
+
+        <!-- Tab 3: Ficha Alumno & Config -->
+        <div id="tabFicha" class="tab-content" style="display: none;">
+          
+          <div class="card card-info">
+            <h3 class="card-title">Antecedentes del Estudiante</h3>
+            <div class="info-grid">
+              <div class="info-row">
+                <span class="info-label">Nombre Completo:</span>
+                <span class="info-value" id="fichaNombre">--</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">RUT:</span>
+                <span class="info-value" id="fichaRut">--</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Curso:</span>
+                <span class="info-value" id="fichaCurso">--</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">N° de Lista:</span>
+                <span class="info-value" id="fichaLista">--</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Estado de Matrícula:</span>
+                <span class="info-value badge-pill badge-active" id="fichaEstado">Activo</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Fecha de Ingreso:</span>
+                <span class="info-value" id="fichaIngreso">--</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card card-actions">
+            <h3 class="card-title">Gestión de este Teléfono</h3>
+            <p class="card-desc">Puedes vincular a otro estudiante (hermano/a) o desvincular al actual de este dispositivo.</p>
+            
+            <button id="btnFichaAddStudent" class="btn btn-outline btn-block mb-2">
+              ➕ Vincular a otro hijo / estudiante
+            </button>
+
+            <button id="btnFichaRemoveCurrent" class="btn btn-danger-outline btn-block">
+              🗑️ Desvincular a este estudiante de mi teléfono
+            </button>
+          </div>
+
+          <div class="institution-card">
+            <h4>Escuela Villa Las Peñas</h4>
+            <p>Dirección y contacto del establecimiento</p>
+            <div class="institution-tag">Año Escolar 2026</div>
+          </div>
+        </div>
+
+      </section>
+
+    </main>
+
+    <!-- Bottom Install Prompt (PWA Banner) -->
+    <div id="pwaInstallBanner" class="pwa-install-banner" style="display: none;">
+      <div class="pwa-banner-left">
+        <img src="assets/insignia.png" alt="App Icon" class="pwa-mini-icon">
+        <div class="pwa-banner-text">
+          <strong>Instalar App Apoderados</strong>
+          <span>Acceso rápido desde tu pantalla de inicio</span>
+        </div>
+      </div>
+      <div class="pwa-banner-actions">
+        <button id="btnPwaInstall" class="btn btn-sm btn-primary">Instalar</button>
+        <button id="btnPwaDismiss" class="btn-dismiss">&times;</button>
+      </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toastNotification" class="toast-box"></div>
+
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
