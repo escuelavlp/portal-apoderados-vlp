@@ -139,6 +139,16 @@
           </div>
         </div>
 
+        <!-- Banner de Alertas al Celular (Web Push) -->
+        <div id="pushNotifyBanner" class="notify-banner" style="display: none;">
+          <div class="notify-banner-icon">🔔</div>
+          <div class="notify-banner-content">
+            <div class="notify-banner-title">Alertas en tiempo real</div>
+            <p class="notify-banner-desc">Recibe un aviso instantáneo en tu celular cuando se registre un atraso o retiro de tu pupilo.</p>
+          </div>
+          <button id="btnEnablePush" class="btn-notify-action">Activar Alertas</button>
+        </div>
+
         <!-- Segmented Tab Navigation -->
         <nav class="segmented-tabs" role="tablist">
           <button class="tab-btn active" data-tab="tabNotas" role="tab" aria-selected="true">
@@ -272,8 +282,16 @@
 
           <div class="card card-actions">
             <h3 class="card-title">Gestión de este Teléfono</h3>
-            <p class="card-desc">Puedes vincular a otro estudiante (hermano/a) o desvincular al actual de este dispositivo.</p>
+            <p class="card-desc">Configura alertas instantáneas, vincula a otro estudiante (hermano/a) o desvincula al actual de este dispositivo.</p>
             
+            <div class="notification-status-box mb-3">
+              <div class="notif-status-info">
+                <span class="notif-status-title">🔔 Alertas al Celular</span>
+                <span id="lblPushStatus" class="notif-status-sub">Consultando estado...</span>
+              </div>
+              <button id="btnTogglePushFicha" class="btn btn-sm btn-outline">Activar Alertas</button>
+            </div>
+
             <button id="btnFichaAddStudent" class="btn btn-outline btn-block mb-2">
               ➕ Vincular a otro hijo / estudiante
             </button>

@@ -6,6 +6,7 @@
 // ── Configuración Supabase ──────────────────────────────────────────────────
 const SUPABASE_URL = "https://csjnjitjycbnumzodvvv.supabase.co";
 const SUPABASE_KEY = "sb_publishable_QsS5e0fI4PJ90uZfD7vUPA_CxLbz4F6";
+const VAPID_PUBLIC_KEY = "BHLJVyKFtqgiVHJQ7ucrin6XZVEHYYNAzRzU3RiQ-oh8BPhxPUrh2tIE_C6IPUSLXgt1uh7K8RwsKOPwtep-Y7c";
 
 const HEADERS = {
   "apikey": SUPABASE_KEY,
@@ -81,10 +82,14 @@ const dom = {
   btnFichaAddStudent: document.getElementById("btnFichaAddStudent"),
   btnFichaRemoveCurrent: document.getElementById("btnFichaRemoveCurrent"),
 
-  // PWA & Toast
+  // PWA, Notificaciones & Toast
   pwaBanner: document.getElementById("pwaInstallBanner"),
   btnPwaInstall: document.getElementById("btnPwaInstall"),
   btnPwaDismiss: document.getElementById("btnPwaDismiss"),
+  pushBanner: document.getElementById("pushNotifyBanner"),
+  btnEnablePush: document.getElementById("btnEnablePush"),
+  lblPushStatus: document.getElementById("lblPushStatus"),
+  btnTogglePushFicha: document.getElementById("btnTogglePushFicha"),
   toast: document.getElementById("toastNotification")
 };
 
@@ -191,6 +196,14 @@ function initEventListeners() {
   // Botón Desvincular Alumno
   dom.btnFichaRemoveCurrent.addEventListener("click", handleUnlinkStudent);
 
+  // Botones de Notificaciones Push
+  if (dom.btnEnablePush) {
+    dom.btnEnablePush.addEventListener("click", requestPushActivation);
+  }
+  if (dom.btnTogglePushFicha) {
+    dom.btnTogglePushFicha.addEventListener("click", requestPushActivation);
+  }
+
   // Navegación de Tabs
   dom.tabButtons.forEach(btn => {
     btn.addEventListener("click", () => {
@@ -232,6 +245,7 @@ function showDashboard() {
   dom.viewDashboard.classList.add("active");
   dom.studentsBar.style.display = state.students.length > 1 ? "flex" : "flex";
   renderStudentsBar();
+  updatePushUI();
 }
 
 function switchTab(tabId) {
@@ -319,6 +333,11 @@ async function handleLinkSubmit(e) {
       showToast(`¡${alumno.nombre.split(" ")[0]} vinculado exitosamente!`);
     }
 
+    // Auto-suscribir a notificaciones push si el permiso ya fue concedido
+    if ('Notification' in window && Notification.permission === 'granted') {
+      subscribeStudentToPush(alumno.rut);
+    }
+
     setLoading(false);
     showDashboard();
     fetchStudentData();
@@ -352,11 +371,13 @@ function setLoading(isLoading) {
 function handleUnlinkStudent() {
   const current = state.students[state.activeIndex];
   if (!current) return;
+  const rutToRemove = current.rut;
   const firstName = current.nombre ? current.nombre.split(' ')[0] : 'este estudiante';
   showConfirmModal(
     `¿Desvincular a ${firstName}?`,
     `Se eliminará de este teléfono. Puedes volver a vincularlo en cualquier momento con su RUT.`,
     () => {
+      unsubscribeStudentFromPush(rutToRemove);
       state.students.splice(state.activeIndex, 1);
       saveStoredStudents();
       if (state.students.length > 0) {
@@ -714,4 +735,156 @@ function initPwa() {
   dom.btnPwaDismiss.addEventListener("click", () => {
     dom.pwaBanner.style.display = "none";
   });
+}
+
+// ── Notificaciones Push Web (VAPID) ──────────────────────────────────────────
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+async function subscribeStudentToPush(rut) {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+    return false;
+  }
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+      });
+    }
+
+    const subJson = sub.toJSON();
+    const rutClean = cleanRut(rut);
+
+    const payload = {
+      rut: rutClean,
+      endpoint: sub.endpoint,
+      p256dh: subJson.keys.p256dh,
+      auth: subJson.keys.auth,
+      user_agent: navigator.userAgent
+    };
+
+    await fetch(`${SUPABASE_URL}/rest/v1/push_subscriptions`, {
+      method: "POST",
+      headers: {
+        ...HEADERS,
+        "Prefer": "resolution=merge-duplicates"
+      },
+      body: JSON.stringify(payload)
+    });
+    return true;
+  } catch (err) {
+    console.warn("Error suscribiendo push:", err);
+    return false;
+  }
+}
+
+async function unsubscribeStudentFromPush(rut) {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (!sub) return;
+
+    const rutClean = cleanRut(rut);
+    await fetch(`${SUPABASE_URL}/rest/v1/push_subscriptions?rut=eq.${encodeURIComponent(rutClean)}&endpoint=eq.${encodeURIComponent(sub.endpoint)}`, {
+      method: "DELETE",
+      headers: HEADERS
+    });
+  } catch (e) {
+    console.warn("Error desuscribiendo push:", e);
+  }
+}
+
+async function updatePushUI() {
+  if (!('Notification' in window)) {
+    if (dom.pushBanner) dom.pushBanner.style.display = 'none';
+    if (dom.lblPushStatus) dom.lblPushStatus.textContent = 'No soportado en este navegador';
+    if (dom.btnTogglePushFicha) dom.btnTogglePushFicha.style.display = 'none';
+    return;
+  }
+
+  const permission = Notification.permission;
+  if (permission === 'granted') {
+    if (dom.pushBanner) dom.pushBanner.style.display = 'none';
+    if (dom.lblPushStatus) dom.lblPushStatus.textContent = 'Activadas en este teléfono ✅';
+    if (dom.btnTogglePushFicha) {
+      dom.btnTogglePushFicha.textContent = '📲 Probar Alerta';
+      dom.btnTogglePushFicha.className = 'btn btn-sm btn-outline';
+    }
+  } else if (permission === 'denied') {
+    if (dom.pushBanner) dom.pushBanner.style.display = 'none';
+    if (dom.lblPushStatus) dom.lblPushStatus.textContent = 'Bloqueadas en navegador (ajustes)';
+    if (dom.btnTogglePushFicha) {
+      dom.btnTogglePushFicha.textContent = 'Permiso denegado';
+      dom.btnTogglePushFicha.disabled = true;
+    }
+  } else {
+    // Default
+    if (dom.pushBanner && state.students.length > 0) dom.pushBanner.style.display = 'flex';
+    if (dom.lblPushStatus) dom.lblPushStatus.textContent = 'Desactivadas';
+    if (dom.btnTogglePushFicha) {
+      dom.btnTogglePushFicha.textContent = 'Activar Alertas';
+      dom.btnTogglePushFicha.className = 'btn btn-sm btn-primary';
+      dom.btnTogglePushFicha.disabled = false;
+    }
+  }
+}
+
+async function requestPushActivation() {
+  if (!('Notification' in window)) {
+    showToast('Tu navegador no soporta notificaciones.');
+    return;
+  }
+
+  if (Notification.permission === 'granted') {
+    // Si ya está activo, enviar alerta de prueba en el teléfono
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      reg.showNotification('🔔 Escuela Villa Las Peñas', {
+        body: '¡Excelente! Las notificaciones funcionan correctamente en tu teléfono.',
+        icon: './assets/insignia.png',
+        badge: './assets/insignia.png',
+        vibrate: [200, 100, 200]
+      });
+      showToast('Prueba de alerta enviada al teléfono.');
+    } catch (e) {
+      showToast('Alertas activas y funcionando.');
+    }
+    return;
+  }
+
+  try {
+    const res = await Notification.requestPermission();
+    if (res === 'granted') {
+      showToast('🔔 ¡Alertas activadas exitosamente!');
+      for (const st of state.students) {
+        await subscribeStudentToPush(st.rut);
+      }
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        reg.showNotification('🔔 Escuela Villa Las Peñas', {
+          body: '¡Alertas activadas! Recibirás avisos de atrasos y retiros.',
+          icon: './assets/insignia.png',
+          badge: './assets/insignia.png',
+          vibrate: [200, 100, 200]
+        });
+      } catch (e) {}
+    } else if (res === 'denied') {
+      showToast('Permiso de alertas denegado en tu navegador.');
+    }
+    updatePushUI();
+  } catch (err) {
+    console.error('Error al solicitar permiso de notificaciones:', err);
+  }
 }
