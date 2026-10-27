@@ -352,23 +352,89 @@ function setLoading(isLoading) {
 function handleUnlinkStudent() {
   const current = state.students[state.activeIndex];
   if (!current) return;
+  const firstName = current.nombre ? current.nombre.split(' ')[0] : 'este estudiante';
+  showConfirmModal(
+    `¿Desvincular a ${firstName}?`,
+    `Se eliminará de este teléfono. Puedes volver a vincularlo en cualquier momento con su RUT.`,
+    () => {
+      state.students.splice(state.activeIndex, 1);
+      saveStoredStudents();
+      if (state.students.length > 0) {
+        state.activeIndex = 0;
+        showToast('Estudiante desvinculado.');
+        renderStudentsBar();
+        showDashboard();
+        fetchStudentData();
+      } else {
+        showToast('Todos los estudiantes fueron desvinculados.');
+        showLinkScreen();
+      }
+    }
+  );
+}
 
-  const confirmMsg = `¿Deseas desvincular a ${current.nombre} de este teléfono?\n\nPodrás volver a vincularlo en cualquier momento con su RUT.`;
-  if (!confirm(confirmMsg)) return;
+// ── Modal de Confirmación (reemplaza confirm() nativo) ─────────────────────
+function showConfirmModal(title, message, onConfirm) {
+  const old = document.getElementById('customConfirmModal');
+  if (old) old.remove();
 
-  state.students.splice(state.activeIndex, 1);
-  saveStoredStudents();
+  const overlay = document.createElement('div');
+  overlay.id = 'customConfirmModal';
+  overlay.style.cssText = [
+    'position:fixed', 'inset:0', 'z-index:2000',
+    'background:rgba(15,23,42,0.65)', 'backdrop-filter:blur(4px)',
+    'display:flex', 'align-items:center', 'justify-content:center', 'padding:24px'
+  ].join(';');
 
-  if (state.students.length > 0) {
-    state.activeIndex = 0;
-    showToast("Estudiante desvinculado.");
-    renderStudentsBar();
-    showDashboard();
-    fetchStudentData();
-  } else {
-    showToast("Todos los estudiantes fueron desvinculados.");
-    showLinkScreen();
-  }
+  const card = document.createElement('div');
+  card.style.cssText = [
+    'background:#fff', 'border-radius:18px', 'padding:24px 22px',
+    'max-width:340px', 'width:100%', 'box-shadow:0 20px 50px rgba(0,0,0,0.25)'
+  ].join(';');
+
+  const icon = document.createElement('div');
+  icon.textContent = '🗑️';
+  icon.style.cssText = 'font-size:1.5rem;margin-bottom:10px;';
+
+  const h = document.createElement('h3');
+  h.textContent = title;
+  h.style.cssText = 'font-size:1.1rem;font-weight:700;color:#0f172a;margin-bottom:8px;font-family:inherit;';
+
+  const p = document.createElement('p');
+  p.textContent = message;
+  p.style.cssText = 'font-size:0.88rem;color:#64748b;margin-bottom:20px;line-height:1.4;font-family:inherit;';
+
+  const btnRow = document.createElement('div');
+  btnRow.style.cssText = 'display:flex;gap:10px;';
+
+  const btnCancel = document.createElement('button');
+  btnCancel.textContent = 'Cancelar';
+  btnCancel.style.cssText = [
+    'flex:1', 'height:44px', 'border-radius:10px', 'border:1.5px solid #e2e8f0',
+    'background:#fff', 'color:#475569', 'font-size:0.95rem', 'font-weight:600',
+    'cursor:pointer', 'font-family:inherit'
+  ].join(';');
+
+  const btnOk = document.createElement('button');
+  btnOk.textContent = 'Sí, desvincular';
+  btnOk.style.cssText = [
+    'flex:1', 'height:44px', 'border-radius:10px', 'border:none',
+    'background:linear-gradient(135deg,#b91c1c,#ef4444)', 'color:#fff',
+    'font-size:0.95rem', 'font-weight:700', 'cursor:pointer', 'font-family:inherit'
+  ].join(';');
+
+  btnCancel.addEventListener('click', () => overlay.remove());
+  btnOk.addEventListener('click', () => { overlay.remove(); onConfirm(); });
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+
+  btnRow.appendChild(btnCancel);
+  btnRow.appendChild(btnOk);
+  card.appendChild(icon);
+  card.appendChild(h);
+  card.appendChild(p);
+  card.appendChild(btnRow);
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
 }
 
 // ── Cargar Datos del Estudiante (Notas y Atrasos) ───────────────────────────
