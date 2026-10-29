@@ -136,6 +136,9 @@ document.addEventListener("DOMContentLoaded", () => {
   if (state.students.length > 0) {
     showDashboard();
     fetchStudentData();
+    if ('Notification' in window && Notification.permission === 'granted') {
+      syncAllStudentsPush();
+    }
   } else {
     showLinkScreen();
   }
@@ -343,7 +346,7 @@ async function handleLinkSubmit(e) {
 
     // Auto-suscribir a notificaciones push si el permiso ya fue concedido
     if ('Notification' in window && Notification.permission === 'granted') {
-      subscribeStudentToPush(alumno.rut);
+      await subscribeStudentToPush(alumno.rut);
     }
 
     setLoading(false);
@@ -1094,6 +1097,18 @@ async function updatePushUI() {
   }
 }
 
+async function syncAllStudentsPush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return;
+  if (Notification.permission !== 'granted') return;
+  if (!state.students || state.students.length === 0) return;
+
+  for (const st of state.students) {
+    if (st && st.rut) {
+      await subscribeStudentToPush(st.rut);
+    }
+  }
+}
+
 async function requestPushActivation() {
   if (!('Notification' in window)) {
     showToast('Tu navegador no soporta notificaciones.');
@@ -1101,7 +1116,8 @@ async function requestPushActivation() {
   }
 
   if (Notification.permission === 'granted') {
-    // Si ya está activo, enviar alerta de prueba en el teléfono
+    // Si ya está activo, asegurar sincronización de todos los hijos en el teléfono
+    syncAllStudentsPush();
     try {
       const reg = await navigator.serviceWorker.ready;
       reg.showNotification('🔔 Escuela Villa Las Peñas', {
