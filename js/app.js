@@ -178,10 +178,16 @@ function initEventListeners() {
   dom.formLink.addEventListener("submit", handleLinkSubmit);
 
   // Botón Actualizar
-  dom.btnRefresh.addEventListener("click", () => {
+  dom.btnRefresh.addEventListener("click", async () => {
+    showToast("Actualizando...");
+    if ("serviceWorker" in navigator) {
+      try {
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (reg) await reg.update();
+      } catch (e) {}
+    }
     if (state.students.length > 0) {
-      showToast("Actualizando datos...");
-      fetchStudentData(true);
+      await fetchStudentData(true);
     }
   });
 
@@ -942,10 +948,21 @@ function renderFicha(st) {
 
 // ── PWA Installation Support ───────────────────────────────────────────────
 function initPwa() {
-  // Service Worker
+  // Service Worker con auto-actualización inmediata
   if ("serviceWorker" in navigator) {
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (!refreshing) {
+        refreshing = true;
+        window.location.reload();
+      }
+    });
+
     navigator.serviceWorker.register("./sw.js")
-      .then(() => console.log("[PWA] Service Worker registrado exitosamente."))
+      .then(reg => {
+        console.log("[PWA] Service Worker registrado exitosamente.");
+        reg.update().catch(() => {});
+      })
       .catch(err => console.warn("[PWA] Fallo registro SW:", err));
   }
 
