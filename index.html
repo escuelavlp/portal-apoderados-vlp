@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#1e3a8a">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Villa Las Peñas">
+  <meta name="apple-mobile-web-app-title" content="Escuela Villa Las Peñas">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" href="assets/insignia.png">
   <link rel="apple-touch-icon" href="assets/insignia.png">
@@ -32,7 +32,7 @@
         <div class="brand">
           <img src="assets/insignia.png" alt="Insignia Escuela Villa Las Peñas" class="school-logo">
           <div class="brand-text">
-            <h1 class="school-title">Villa Las Peñas</h1>
+            <h1 class="school-title">Escuela Villa Las Peñas</h1>
             <span class="portal-badge">Portal Apoderados</span>
           </div>
         </div>
@@ -87,10 +87,12 @@
             </div>
 
             <div class="form-group">
-              <label for="selectCourseVerify">Curso del Estudiante <span class="optional-tag">(Opcional para confirmar)</span></label>
+              <label for="selectCourseVerify">Curso del Estudiante <span class="required-star" style="color:#ef4444;font-weight:700;">*</span></label>
               <div class="input-wrapper">
-                <select id="selectCourseVerify">
-                  <option value="">Cualquier curso / No estoy seguro</option>
+                <select id="selectCourseVerify" required>
+                  <option value="" disabled selected>Selecciona el curso...</option>
+                  <option value="NT1 A">NT1 A (Pre-Kínder)</option>
+                  <option value="NT2 A">NT2 A (Kínder)</option>
                   <option value="1° Básico A">1° Básico A</option>
                   <option value="2° Básico A">2° Básico A</option>
                   <option value="3° Básico A">3° Básico A</option>
@@ -102,6 +104,7 @@
                 </select>
                 <span class="input-icon">📚</span>
               </div>
+              <small class="helper-text">Debes seleccionar el curso oficial para vincular al estudiante.</small>
             </div>
 
             <div id="linkErrorMsg" class="alert-box alert-error" style="display: none;"></div>
@@ -175,6 +178,7 @@
             <div class="semester-pills">
               <button class="pill-btn active" data-sem="1">1° Semestre</button>
               <button class="pill-btn" data-sem="2">2° Semestre</button>
+              <button class="pill-btn" data-sem="anual">Anual</button>
             </div>
           </div>
 
@@ -303,7 +307,6 @@
 
           <div class="institution-card">
             <h4>Escuela Villa Las Peñas</h4>
-            <p>Dirección y contacto del establecimiento</p>
             <div class="institution-tag">Año Escolar 2026</div>
           </div>
         </div>

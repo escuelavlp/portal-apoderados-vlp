@@ -296,15 +296,17 @@ async function handleLinkSubmit(e) {
     return;
   }
 
+  if (!courseVerify) {
+    showLinkError("Por favor selecciona el curso oficial del estudiante.");
+    return;
+  }
+
   setLoading(true);
   dom.linkError.style.display = "none";
 
   try {
-    // 1. Consultar a la tabla alumnos
-    let queryUrl = `${SUPABASE_URL}/rest/v1/alumnos?rut=ilike.${encodeURIComponent(rutClean)}&select=*`;
-    if (courseVerify) {
-      queryUrl += `&curso=eq.${encodeURIComponent(courseVerify)}`;
-    }
+    // 1. Consultar a la tabla alumnos exigiendo RUT y Curso
+    const queryUrl = `${SUPABASE_URL}/rest/v1/alumnos?rut=ilike.${encodeURIComponent(rutClean)}&curso=eq.${encodeURIComponent(courseVerify)}&select=*`;
 
     const resp = await fetch(queryUrl, { method: "GET", headers: HEADERS, mode: "cors" });
     if (!resp.ok) {
@@ -314,7 +316,7 @@ async function handleLinkSubmit(e) {
     const data = await resp.json();
 
     if (!data || data.length === 0) {
-      showLinkError("No encontramos a ningún estudiante con este RUT. Verifica que esté bien escrito o consulta en inspectoría del colegio.");
+      showLinkError("No encontramos al estudiante con ese RUT en el curso seleccionado. Por favor verifica que ambos datos sean correctos.");
       setLoading(false);
       return;
     }
@@ -517,9 +519,213 @@ function renderStudentHeader(st) {
   dom.studentAvatar.textContent = initials;
 }
 
+// ── Helpers para Calificaciones Conceptuales ──────────────────────────────
+function esAsignaturaConceptual(asig) {
+  if (!asig) return false;
+  const s = String(asig).toLowerCase();
+  return s.includes("religi") || s.includes("orientac");
+}
+
+function notaAConcepto(val) {
+  if (val === null || val === undefined) return "";
+  const s = String(val).trim().toUpperCase();
+  if (!s || s === "—" || s === "-" || s === "NONE" || s === "NAN" || s === "NULL") return "";
+  if (s === "MB" || s === "B" || s === "S" || s === "I") return s;
+  if (s.includes("MUY BUENO")) return "MB";
+  if (s.includes("BUENO")) return "B";
+  if (s.includes("SUFICIENTE")) return "S";
+  if (s.includes("INSUFICIENTE")) return "I";
+  const num = parseFloat(s.replace(",", "."));
+  if (!isNaN(num)) {
+    const n = (num >= 10 && num <= 70) ? num / 10 : num;
+    if (n >= 6.0) return "MB";
+    if (n >= 5.0) return "B";
+    if (n >= 4.0) return "S";
+    if (n >= 1.0) return "I";
+  }
+  return s;
+}
+
+function getConceptBadgeClass(conc) {
+  if (conc === "MB") return "good";
+  if (conc === "B") return "blue";
+  if (conc === "S") return "warning";
+  if (conc === "I") return "bad";
+  return "empty";
+}
+
 // ── Render Calificaciones (Notas) ──────────────────────────────────────────
 function renderGrades() {
   const sem = state.currentSemester;
+
+  // ════════════════════════════════════════════════════════════════════════
+  // MODO 1: RESUMEN ANUAL (Solo promedios finales por asignatura)
+  // ════════════════════════════════════════════════════════════════════════
+  if (sem === "anual") {
+    dom.lblPromedioSemestre.textContent = "Resumen Anual";
+    dom.listGradesCards.innerHTML = "";
+
+    // Agrupar calificaciones por asignatura
+    const asigMap = new Map();
+    state.grades.forEach(g => {
+      const name = (g.asignatura || "").trim();
+      if (!name) return;
+      if (!asigMap.has(name)) {
+        asigMap.set(name, { s1: null, s2: null });
+      }
+      const entry = asigMap.get(name);
+      const semNum = String(g.semestre).trim();
+      if (semNum === "1") entry.s1 = g;
+      else if (semNum === "2") entry.s2 = g;
+    });
+
+    dom.lblTotalAsignaturas.textContent = `${asigMap.size} asignaturas`;
+
+    if (asigMap.size === 0) {
+      dom.gradesEmptyState.style.display = "block";
+      dom.lblPromedioGeneral.textContent = "--";
+      dom.lblEstadoPromedio.textContent = "Sin datos de notas anuales";
+      dom.lblEstadoPromedio.className = "promedio-status";
+      dom.circlePromedioGeneral.className = "promedio-circle";
+      return;
+    }
+
+    dom.gradesEmptyState.style.display = "none";
+
+    let sumaPromediosAnuales = 0;
+    let countConPromedioAnual = 0;
+
+    asigMap.forEach((entry, asigName) => {
+      const card = document.createElement("div");
+      card.className = "grade-card";
+      const isConceptual = esAsignaturaConceptual(asigName);
+
+      let p1Display = "--";
+      let p1Class = "empty";
+      let p2Display = "--";
+      let p2Class = "empty";
+      let finalDisplay = "--";
+      let finalClass = "empty";
+
+      if (isConceptual) {
+        // Conceptos 1° Semestre
+        if (entry.s1 && entry.s1.promedio !== null && entry.s1.promedio !== undefined && entry.s1.promedio !== "") {
+          const c1 = notaAConcepto(entry.s1.promedio);
+          if (c1) {
+            p1Display = c1;
+            p1Class = getConceptBadgeClass(c1);
+          }
+        }
+        // Conceptos 2° Semestre
+        if (entry.s2 && entry.s2.promedio !== null && entry.s2.promedio !== undefined && entry.s2.promedio !== "") {
+          const c2 = notaAConcepto(entry.s2.promedio);
+          if (c2) {
+            p2Display = c2;
+            p2Class = getConceptBadgeClass(c2);
+          }
+        }
+        // Concepto Final: según normativa y criterio de la escuela, se prioriza S2 si existe, sino S1
+        const cFinal = (p2Display !== "--") ? p2Display : ((p1Display !== "--") ? p1Display : "");
+        if (cFinal) {
+          finalDisplay = cFinal;
+          finalClass = getConceptBadgeClass(cFinal);
+        }
+      } else {
+        // Cuantitativo
+        let p1Num = null;
+        let p2Num = null;
+
+        if (entry.s1 && entry.s1.promedio !== null && entry.s1.promedio !== undefined && entry.s1.promedio !== "") {
+          const parsed = parseFloat(entry.s1.promedio);
+          if (!isNaN(parsed)) {
+            p1Num = parsed;
+            p1Display = p1Num.toFixed(1);
+            p1Class = p1Num >= 6.0 ? "good" : (p1Num >= 4.0 ? "blue" : "bad");
+          }
+        }
+
+        if (entry.s2 && entry.s2.promedio !== null && entry.s2.promedio !== undefined && entry.s2.promedio !== "") {
+          const parsed = parseFloat(entry.s2.promedio);
+          if (!isNaN(parsed)) {
+            p2Num = parsed;
+            p2Display = p2Num.toFixed(1);
+            p2Class = p2Num >= 6.0 ? "good" : (p2Num >= 4.0 ? "blue" : "bad");
+          }
+        }
+
+        // Promedio final de la asignatura
+        let finalNum = null;
+        if (p1Num !== null && p2Num !== null) {
+          finalNum = (p1Num + p2Num) / 2;
+        } else if (p1Num !== null) {
+          finalNum = p1Num;
+        } else if (p2Num !== null) {
+          finalNum = p2Num;
+        }
+
+        if (finalNum !== null) {
+          finalDisplay = finalNum.toFixed(1);
+          finalClass = finalNum >= 6.0 ? "good" : (finalNum >= 4.0 ? "blue" : "bad");
+          sumaPromediosAnuales += finalNum;
+          countConPromedioAnual++;
+        }
+      }
+
+      card.innerHTML = `
+        <div class="grade-header">
+          <span class="subject-name">${asigName}</span>
+          <span class="subject-average-pill ${finalClass}" title="Promedio Final">${finalDisplay}</span>
+        </div>
+        <div class="annual-averages-row">
+          <div class="annual-stat-box">
+            <span class="annual-stat-label">1° Semestre</span>
+            <span class="annual-stat-val ${p1Class}">${p1Display}</span>
+          </div>
+          <div class="annual-stat-box">
+            <span class="annual-stat-label">2° Semestre</span>
+            <span class="annual-stat-val ${p2Class}">${p2Display}</span>
+          </div>
+          <div class="annual-stat-box highlight">
+            <span class="annual-stat-label">${isConceptual ? 'Conc. Final' : 'Prom. Final'}</span>
+            <span class="annual-stat-val ${finalClass}">${finalDisplay}</span>
+          </div>
+        </div>
+      `;
+
+      dom.listGradesCards.appendChild(card);
+    });
+
+    // Render Promedio General Anual
+    if (countConPromedioAnual > 0) {
+      const promGeneral = sumaPromediosAnuales / countConPromedioAnual;
+      const rounded = promGeneral.toFixed(1);
+      dom.lblPromedioGeneral.textContent = rounded;
+
+      if (promGeneral >= 6.0) {
+        dom.circlePromedioGeneral.className = "promedio-circle good";
+        dom.lblEstadoPromedio.textContent = "✨ Rendimiento anual sobresaliente";
+        dom.lblEstadoPromedio.className = "promedio-status status-good";
+      } else if (promGeneral >= 4.0) {
+        dom.circlePromedioGeneral.className = "promedio-circle";
+        dom.lblEstadoPromedio.textContent = "👍 Aprobado anual";
+        dom.lblEstadoPromedio.className = "promedio-status status-good";
+      } else {
+        dom.circlePromedioGeneral.className = "promedio-circle bad";
+        dom.lblEstadoPromedio.textContent = "⚠️ Promedio final bajo 4.0";
+        dom.lblEstadoPromedio.className = "promedio-status status-bad";
+      }
+    } else {
+      dom.lblPromedioGeneral.textContent = "--";
+      dom.lblEstadoPromedio.textContent = "Promedios en proceso";
+      dom.circlePromedioGeneral.className = "promedio-circle";
+    }
+
+    return;
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  // MODO 2: SEMESTRAL (1° o 2° Semestre con detalle de notas parciales)
+  // ════════════════════════════════════════════════════════════════════════
   dom.lblPromedioSemestre.textContent = `${sem}° Semestre`;
 
   // Filtrar notas por semestre seleccionado
@@ -539,45 +745,75 @@ function renderGrades() {
 
   dom.gradesEmptyState.style.display = "none";
 
-  // Cálculo Promedio General del Semestre
+  // Cálculo Promedio General del Semestre (Solo cuantitativo)
   let sumaPromedios = 0;
   let countConPromedio = 0;
 
   notasSemestre.forEach(item => {
     const card = document.createElement("div");
     card.className = "grade-card";
+    const isConceptual = esAsignaturaConceptual(item.asignatura);
 
-    const prom = item.promedio ? parseFloat(item.promedio) : null;
     let promClass = "empty";
     let promText = "--";
-
-    if (prom !== null && !isNaN(prom)) {
-      promText = prom.toFixed(1);
-      sumaPromedios += prom;
-      countConPromedio++;
-      promClass = prom >= 6.0 ? "good" : (prom >= 4.0 ? "blue" : "bad");
-    }
-
-    // Chips de notas parciales (N1 a N10)
     let partialGradesHtml = "";
-    for (let i = 1; i <= 10; i++) {
-      const val = item[`n${i}`];
-      if (val !== null && val !== undefined && val !== "") {
-        const numVal = parseFloat(val);
-        const isBad = !isNaN(numVal) && numVal < 4.0;
-        partialGradesHtml += `
-          <div class="grade-pill-tag">
-            <span class="grade-tag-label">N${i}</span>
-            <span class="grade-tag-val ${isBad ? 'bad' : ''}">${parseFloat(val).toFixed(1)}</span>
-          </div>
-        `;
+
+    if (isConceptual) {
+      // ── Asignatura Conceptual (Religión, Orientación, etc.)
+      const concProm = notaAConcepto(item.promedio);
+      if (concProm) {
+        promText = concProm;
+        promClass = getConceptBadgeClass(concProm);
+      }
+
+      // Notas parciales en conceptos
+      for (let i = 1; i <= 10; i++) {
+        const val = item[`n${i}`];
+        if (val !== null && val !== undefined && val !== "") {
+          const concVal = notaAConcepto(val);
+          if (concVal) {
+            const isBad = concVal === "I";
+            partialGradesHtml += `
+              <div class="grade-pill-tag">
+                <span class="grade-tag-label">N${i}</span>
+                <span class="grade-tag-val ${isBad ? 'bad' : ''}">${concVal}</span>
+              </div>
+            `;
+          }
+        }
+      }
+    } else {
+      // ── Asignatura Cuantitativa (con nota decimal 1.0 a 7.0)
+      const prom = (item.promedio !== null && item.promedio !== undefined && item.promedio !== "") ? parseFloat(item.promedio) : null;
+      if (prom !== null && !isNaN(prom)) {
+        promText = prom.toFixed(1);
+        sumaPromedios += prom;
+        countConPromedio++;
+        promClass = prom >= 6.0 ? "good" : (prom >= 4.0 ? "blue" : "bad");
+      }
+
+      // Chips de notas parciales (N1 a N10)
+      for (let i = 1; i <= 10; i++) {
+        const val = item[`n${i}`];
+        if (val !== null && val !== undefined && val !== "") {
+          const numVal = parseFloat(val);
+          if (!isNaN(numVal)) {
+            const isBad = numVal < 4.0;
+            partialGradesHtml += `
+              <div class="grade-pill-tag">
+                <span class="grade-tag-label">N${i}</span>
+                <span class="grade-tag-val ${isBad ? 'bad' : ''}">${numVal.toFixed(1)}</span>
+              </div>
+            `;
+          }
+        }
       }
     }
 
     card.innerHTML = `
       <div class="grade-header">
         <span class="subject-name">${item.asignatura || 'Asignatura'}</span>
-        <span class="subject-average-pill ${promClass}" title="Promedio">${promText}</span>
+        <span class="subject-average-pill ${promClass}" title="${isConceptual ? 'Concepto' : 'Promedio'}">${promText}</span>
       </div>
       ${partialGradesHtml ? `<div class="partial-grades-chips">${partialGradesHtml}</div>` : ''}
     `;

@@ -1,6 +1,6 @@
 {
   "name": "Portal Apoderados - Escuela Villa Las Peñas",
-  "short_name": "Villa Las Peñas",
+  "short_name": "Escuela Villa Las Peñas",
   "description": "Consulta de calificaciones y registro de atrasos para apoderados de la Escuela Villa Las Peñas",
   "start_url": "./index.html",
   "display": "standalone",

@@ -115,7 +115,7 @@ body {
 }
 
 .school-title {
-  font-size: 1.15rem;
+  font-size: 1.05rem;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: #ffffff;
@@ -575,10 +575,10 @@ body {
 .pill-btn {
   background: transparent;
   border: none;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   font-weight: 600;
   color: var(--text-muted);
-  padding: 4px 12px;
+  padding: 4px 10px;
   border-radius: var(--radius-full);
   cursor: pointer;
   font-family: inherit;
@@ -747,6 +747,11 @@ body {
   color: var(--primary-700);
 }
 
+.subject-average-pill.warning {
+  background: var(--accent-amber-light);
+  color: var(--accent-amber);
+}
+
 .subject-average-pill.bad {
   background: var(--accent-rose-light);
   color: var(--accent-rose);
@@ -757,6 +762,51 @@ body {
   color: #94a3b8;
   font-size: 0.85rem;
 }
+
+/* ── Estructura de Tarjeta Anual (Solo Promedios) ── */
+.annual-averages-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border-light);
+}
+
+.annual-stat-box {
+  background: #f8fafc;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  padding: 6px 4px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.annual-stat-box.highlight {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.annual-stat-label {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-bottom: 2px;
+  white-space: nowrap;
+}
+
+.annual-stat-val {
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: var(--primary-900);
+}
+
+.annual-stat-val.good { color: var(--accent-emerald); }
+.annual-stat-val.blue { color: var(--primary-700); }
+.annual-stat-val.warning { color: var(--accent-amber); }
+.annual-stat-val.bad { color: var(--accent-rose); }
+.annual-stat-val.empty { color: var(--text-light); }
 
 .partial-grades-chips {
   display: flex;
