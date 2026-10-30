@@ -548,13 +548,96 @@ const ASIG_ORDEN_OFICIAL = [
 ];
 
 /**
+ * Mapa de variantes de nombre (como se guardan en BD) → nombre oficial ministerial.
+ * Cubre tildes faltantes, abreviaciones, nombres viejos, etc.
+ */
+const ASIG_NOMBRE_OFICIAL = {
+  // Lenguaje
+  "lenguaje":                             "Lenguaje y Comunicación",
+  "lenguaje y comunicacion":              "Lenguaje y Comunicación",
+  "lengua":                               "Lengua y Literatura",
+  "lengua y literatura":                  "Lengua y Literatura",
+  // Inglés
+  "ingles":                               "Idioma Extranjero Inglés",
+  "inglés":                              "Idioma Extranjero Inglés",
+  "idioma extranjero ingles":             "Idioma Extranjero Inglés",
+  "idioma extranjero inglés":            "Idioma Extranjero Inglés",
+  // Matemática
+  "matematica":                           "Matemática",
+  "matemática":                          "Matemática",
+  "matematicas":                          "Matemática",
+  "matemáticas":                         "Matemática",
+  "mat":                                  "Matemática",
+  // Ciencias
+  "ciencias":                             "Ciencias Naturales",
+  "ciencias naturales":                   "Ciencias Naturales",
+  "cien":                                 "Ciencias Naturales",
+  // Historia
+  "historia":                             "Historia, Geografía y Ciencias Sociales",
+  "historia, geografia y ciencias sociales": "Historia, Geografía y Ciencias Sociales",
+  "historia, geografía y ciencias sociales": "Historia, Geografía y Ciencias Sociales",
+  "cs. sociales":                         "Historia, Geografía y Ciencias Sociales",
+  "cs sociales":                          "Historia, Geografía y Ciencias Sociales",
+  "hist":                                 "Historia, Geografía y Ciencias Sociales",
+  // Tecnología
+  "tecnologia":                           "Tecnología",
+  "tecnología":                          "Tecnología",
+  "tec":                                  "Tecnología",
+  // Artes
+  "artes":                                "Artes Visuales",
+  "artes visuales":                       "Artes Visuales",
+  "art":                                  "Artes Visuales",
+  // Música
+  "musica":                               "Música",
+  "música":                             "Música",
+  "mus":                                  "Música",
+  // Ed. Física
+  "ed. fisica":                           "Educación Física y Salud",
+  "ed. física":                          "Educación Física y Salud",
+  "educacion fisica":                     "Educación Física y Salud",
+  "educación física":                   "Educación Física y Salud",
+  "educacion fisica y salud":             "Educación Física y Salud",
+  "educación física y salud":          "Educación Física y Salud",
+  "ef":                                   "Educación Física y Salud",
+  // Orientación
+  "orientacion":                          "Orientación",
+  "orientación":                         "Orientación",
+  "ori":                                  "Orientación",
+  // Religión
+  "religion":                             "Religión Católica",
+  "religion catolica":                    "Religión Católica",
+  "religión católica":                  "Religión Católica",
+  "rel. cat.":                            "Religión Católica",
+  "religion evangelica":                  "Religión Evangélica",
+  "religión evangélica":               "Religión Evangélica",
+  "rel. evang.":                          "Religión Evangélica",
+};
+
+/**
+ * Normaliza el nombre de una asignatura al nombre oficial del ministerio.
+ * Si no hay mapeo conocido, retorna el nombre tal como vino de la BD.
+ */
+function normalizarAsig(nombre) {
+  const s = (nombre || "").trim();
+  const key = s.toLowerCase()
+    .replace(/á/g, "a").replace(/é/g, "e").replace(/í/g, "i")
+    .replace(/ó/g, "o").replace(/ú/g, "u").replace(/ü/g, "u");
+  // Buscar en el mapa (sin tildes para tolerancia)
+  const mapKey = Object.keys(ASIG_NOMBRE_OFICIAL).find(
+    k => k.replace(/á/g, "a").replace(/é/g, "e").replace(/í/g, "i")
+           .replace(/ó/g, "o").replace(/ú/g, "u") === key
+  );
+  return mapKey ? ASIG_NOMBRE_OFICIAL[mapKey] : s;
+}
+
+/**
  * Retorna el índice de orden oficial de una asignatura (para ordenar tarjetas).
- * Si no está en el catálogo, la pone al final.
+ * Normaliza el nombre antes de buscar.
  */
 function ordenAsig(nombre) {
-  const s = (nombre || "").trim();
+  const normalizado = normalizarAsig(nombre);
   const idx = ASIG_ORDEN_OFICIAL.findIndex(
-    a => a.toLowerCase() === s.toLowerCase()
+    a => a.toLowerCase() === normalizado.toLowerCase()
   );
   return idx === -1 ? 999 : idx;
 }
@@ -643,7 +726,8 @@ function renderGrades() {
     asigMapOrdenado.forEach((entry, asigName) => {
       const card = document.createElement("div");
       card.className = "grade-card";
-      const isConceptual = esAsignaturaConceptual(asigName);
+      const asigNombreOficial = normalizarAsig(asigName);
+      const isConceptual = esAsignaturaConceptual(asigNombreOficial);
 
       let p1Display = "--";
       let p1Class = "empty";
@@ -718,7 +802,7 @@ function renderGrades() {
 
       card.innerHTML = `
         <div class="grade-header">
-          <span class="subject-name">${asigName}</span>
+          <span class="subject-name">${asigNombreOficial}</span>
           <span class="subject-average-pill ${finalClass}" title="Promedio Final">${finalDisplay}</span>
         </div>
         <div class="annual-averages-row">
@@ -800,7 +884,8 @@ function renderGrades() {
   notasSemestre.forEach(item => {
     const card = document.createElement("div");
     card.className = "grade-card";
-    const isConceptual = esAsignaturaConceptual(item.asignatura);
+    const asigNombreOficial = normalizarAsig(item.asignatura);
+    const isConceptual = esAsignaturaConceptual(asigNombreOficial);
 
     let promClass = "empty";
     let promText = "--";
@@ -860,7 +945,7 @@ function renderGrades() {
 
     card.innerHTML = `
       <div class="grade-header">
-        <span class="subject-name">${item.asignatura || 'Asignatura'}</span>
+        <span class="subject-name">${asigNombreOficial}</span>
         <span class="subject-average-pill ${promClass}" title="${isConceptual ? 'Concepto' : 'Promedio'}">${promText}</span>
       </div>
       ${partialGradesHtml ? `<div class="partial-grades-chips">${partialGradesHtml}</div>` : ''}
