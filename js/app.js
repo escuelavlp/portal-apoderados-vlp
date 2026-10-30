@@ -22,7 +22,7 @@ let state = {
   activeIndex: 0,             // Índice del estudiante actualmente seleccionado
   currentSemester: "1",       // Semestre activo ("1", "2", o "anual")
   grades: [],                 // Calificaciones del estudiante activo (sin filas __RESUMEN__)
-  resumenPromedios: { s1: null, s2: null }, // Promedios generales pre-calculados por main.py
+  resumenPromedios: { s1: null, s2: null, anual: null }, // Promedios generales pre-calculados por main.py
   catalogoAsig: [],           // Catálogo completo de asignaturas del curso del alumno
   atrasos: [],                // Atrasos del estudiante activo
   deferredInstallPrompt: null
@@ -493,18 +493,19 @@ async function fetchStudentData(isRefresh = false) {
 
       // ── Nivel 1: Separar filas __RESUMEN__ (promedios pre-calculados por main.py) ──
       // Estos tienen el promedio general oficial; NO se calculan en el portal.
-      state.resumenPromedios = { s1: null, s2: null };
+      state.resumenPromedios = { s1: null, s2: null, anual: null };
       state.grades = [];
 
       for (const row of allRows) {
         const asig = (row.asignatura || "").trim();
         if (asig === "__RESUMEN__") {
-          const sem = String(row.semestre || "").trim();
+          const sem = String(row.semestre || "").trim().toLowerCase();
           const prom = row.promedio !== null && row.promedio !== undefined && row.promedio !== ""
             ? parseFloat(String(row.promedio).replace(",", "."))
             : null;
           if (sem === "1" && prom !== null && !isNaN(prom)) state.resumenPromedios.s1 = prom;
           if (sem === "2" && prom !== null && !isNaN(prom)) state.resumenPromedios.s2 = prom;
+          if (sem === "anual" && prom !== null && !isNaN(prom)) state.resumenPromedios.anual = prom;
         } else {
           state.grades.push(row);
         }
@@ -810,18 +811,11 @@ function renderGrades() {
       dom.listGradesCards.appendChild(card);
     }
 
-    // ── Promedio General Anual Oficial (Criterio MINEDUC / SIGE) ──
-    // Se calcula como el promedio de las notas finales de cada asignatura computable
-    let promAnual = null;
-    if (promediosFinalesComputables.length > 0) {
+    // ── Promedio General Anual Oficial (Criterio MINEDUC / SIGE desde BD) ──
+    let promAnual = state.resumenPromedios.anual;
+    if (promAnual === null && promediosFinalesComputables.length > 0) {
       const suma = promediosFinalesComputables.reduce((a, b) => a + b, 0);
       promAnual = Math.round((suma / promediosFinalesComputables.length) * 10) / 10;
-    } else {
-      // Fallback a resumen precalculado si no hay notas de asignaturas
-      const r = state.resumenPromedios;
-      if (r.s1 !== null && r.s2 !== null) promAnual = (r.s1 + r.s2) / 2;
-      else if (r.s1 !== null) promAnual = r.s1;
-      else if (r.s2 !== null) promAnual = r.s2;
     }
 
     _renderCirculoPromedio(promAnual, "anual");
@@ -901,7 +895,22 @@ function renderGrades() {
   }
 
   // ── Nivel 1: Promedio general OFICIAL pre-calculado por main.py ──
-  const promSem = sem === "1" ? state.resumenPromedios.s1 : state.resumenPromedios.s2;
+  let promSem = sem === "1" ? state.resumenPromedios.s1 : state.resumenPromedios.s2;
+  if (promSem === null) {
+    const computables = [];
+    for (const asigOficial of state.catalogoAsig) {
+      if (!esAsignaturaConceptual(asigOficial)) {
+        const it = gradesBySemAndAsig[sem].get(asigOficial);
+        if (it && it.promedio != null && it.promedio !== "") {
+          const v = parseFloat(String(it.promedio).replace(",", "."));
+          if (!isNaN(v) && v >= 1.0 && v <= 7.0) computables.push(v);
+        }
+      }
+    }
+    if (computables.length > 0) {
+      promSem = Math.round((computables.reduce((a, b) => a + b, 0) / computables.length) * 10) / 10;
+    }
+  }
   _renderCirculoPromedio(promSem, sem);
 }
 
