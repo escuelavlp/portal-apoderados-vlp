@@ -528,6 +528,37 @@ function renderStudentHeader(st) {
   dom.studentAvatar.textContent = initials;
 }
 
+// ── Catálogo oficial de asignaturas (orden ministerial) ───────────────────
+// Alineado con obtener_plan_estudio_curso() de main.py
+// 1°–6° Básico: Decreto N° 2960/2012  |  7°–8° Básico: Decreto N° 628/2016
+const ASIG_ORDEN_OFICIAL = [
+  "Lenguaje y Comunicación",      // 1°–6° básico
+  "Lengua y Literatura",           // 7°–8° básico
+  "Idioma Extranjero Inglés",
+  "Matemática",
+  "Ciencias Naturales",
+  "Historia, Geografía y Ciencias Sociales",
+  "Tecnología",
+  "Artes Visuales",
+  "Música",
+  "Educación Física y Salud",
+  "Orientación",
+  "Religión Católica",
+  "Religión Evangélica"
+];
+
+/**
+ * Retorna el índice de orden oficial de una asignatura (para ordenar tarjetas).
+ * Si no está en el catálogo, la pone al final.
+ */
+function ordenAsig(nombre) {
+  const s = (nombre || "").trim();
+  const idx = ASIG_ORDEN_OFICIAL.findIndex(
+    a => a.toLowerCase() === s.toLowerCase()
+  );
+  return idx === -1 ? 999 : idx;
+}
+
 // ── Helpers para Calificaciones Conceptuales ──────────────────────────────
 function esAsignaturaConceptual(asig) {
   if (!asig) return false;
@@ -604,7 +635,12 @@ function renderGrades() {
     let sumaPromediosAnuales = 0;
     let countConPromedioAnual = 0;
 
-    asigMap.forEach((entry, asigName) => {
+    // Ordenar asignaturas según catálogo ministerial oficial
+    const asigMapOrdenado = new Map(
+      [...asigMap.entries()].sort((a, b) => ordenAsig(a[0]) - ordenAsig(b[0]))
+    );
+
+    asigMapOrdenado.forEach((entry, asigName) => {
       const card = document.createElement("div");
       card.className = "grade-card";
       const isConceptual = esAsignaturaConceptual(asigName);
@@ -738,7 +774,10 @@ function renderGrades() {
   dom.lblPromedioSemestre.textContent = `${sem}° Semestre`;
 
   // Filtrar notas por semestre seleccionado
-  const notasSemestre = state.grades.filter(n => String(n.semestre).trim() === sem);
+  // Filtrar por semestre y ordenar según catálogo ministerial oficial
+  const notasSemestre = state.grades
+    .filter(n => String(n.semestre).trim() === sem)
+    .sort((a, b) => ordenAsig(a.asignatura) - ordenAsig(b.asignatura));
 
   dom.lblTotalAsignaturas.textContent = `${notasSemestre.length} asignaturas`;
   dom.listGradesCards.innerHTML = "";
