@@ -735,6 +735,8 @@ function renderGrades() {
     const totalAsigs = state.catalogoAsig.length;
     dom.lblTotalAsignaturas.textContent = `${totalAsigs} asignaturas`;
 
+    const promediosFinalesComputables = [];
+
     for (const asigOficial of state.catalogoAsig) {
       const card = document.createElement("div");
       card.className = "grade-card";
@@ -768,15 +770,20 @@ function renderGrades() {
           const v = parseFloat(String(rowS2.promedio).replace(",", "."));
           if (!isNaN(v)) { p2Num = v; p2Display = v.toFixed(1); p2Class = v >= 6.0 ? "good" : (v >= 4.0 ? "blue" : "bad"); }
         }
-        // Nota final de la asignatura: (S1+S2)/2, o solo el que existe
+        // Nota final de la asignatura: (S1+S2)/2 redondeado a 1 decimal, o solo el que existe
         let finalNum = null;
-        if (p1Num !== null && p2Num !== null) finalNum = (p1Num + p2Num) / 2;
-        else if (p1Num !== null) finalNum = p1Num;
-        else if (p2Num !== null) finalNum = p2Num;
+        if (p1Num !== null && p2Num !== null) {
+          finalNum = Math.round(((p1Num + p2Num) / 2) * 10) / 10;
+        } else if (p1Num !== null) {
+          finalNum = p1Num;
+        } else if (p2Num !== null) {
+          finalNum = p2Num;
+        }
 
         if (finalNum !== null) {
           finalDisplay = finalNum.toFixed(1);
           finalClass = finalNum >= 6.0 ? "good" : (finalNum >= 4.0 ? "blue" : "bad");
+          promediosFinalesComputables.push(finalNum);
         }
       }
 
@@ -803,14 +810,19 @@ function renderGrades() {
       dom.listGradesCards.appendChild(card);
     }
 
-    // ── Nivel 1: Promedio general OFICIAL pre-calculado por main.py ──
-    // Si ambos semestres tienen resumen, el anual es el promedio de ambos.
-    // Si solo hay uno, se usa ese.
-    const r = state.resumenPromedios;
+    // ── Promedio General Anual Oficial (Criterio MINEDUC / SIGE) ──
+    // Se calcula como el promedio de las notas finales de cada asignatura computable
     let promAnual = null;
-    if (r.s1 !== null && r.s2 !== null) promAnual = (r.s1 + r.s2) / 2;
-    else if (r.s1 !== null) promAnual = r.s1;
-    else if (r.s2 !== null) promAnual = r.s2;
+    if (promediosFinalesComputables.length > 0) {
+      const suma = promediosFinalesComputables.reduce((a, b) => a + b, 0);
+      promAnual = Math.round((suma / promediosFinalesComputables.length) * 10) / 10;
+    } else {
+      // Fallback a resumen precalculado si no hay notas de asignaturas
+      const r = state.resumenPromedios;
+      if (r.s1 !== null && r.s2 !== null) promAnual = (r.s1 + r.s2) / 2;
+      else if (r.s1 !== null) promAnual = r.s1;
+      else if (r.s2 !== null) promAnual = r.s2;
+    }
 
     _renderCirculoPromedio(promAnual, "anual");
     return;
