@@ -295,20 +295,39 @@ function renderStudentsBar() {
   });
 }
 
+// ── Nómina de Apoderados Caché ──────────────────────────────────────────────
+let apoderadosNominaCache = null;
+
+async function fetchApoderadosNomina() {
+  if (apoderadosNominaCache) return apoderadosNominaCache;
+  try {
+    const resp = await fetch(`${SUPABASE_URL}/rest/v1/configuracion?clave=eq.nomina_apoderados&select=valor`, {
+      method: "GET",
+      headers: HEADERS,
+      mode: "cors"
+    });
+    if (resp.ok) {
+      const rows = await resp.json();
+      if (rows.length > 0 && rows[0].valor) {
+        apoderadosNominaCache = JSON.parse(rows[0].valor);
+        return apoderadosNominaCache;
+      }
+    }
+  } catch (e) {
+    console.warn("No se pudo precargar nómina de apoderados:", e);
+  }
+  return null;
+}
+
 // ── Vinculación de Estudiante (Consulta a Supabase) ─────────────────────────
 async function handleLinkSubmit(e) {
   e.preventDefault();
   const rawRut = dom.inputRut.value.trim();
   const rutClean = cleanRut(rawRut);
-  const courseVerify = dom.selectCourseVerify.value;
+  const courseVerify = dom.selectCourseVerify ? dom.selectCourseVerify.value : "";
 
   if (rutClean.length < 3) {
     showLinkError("Por favor ingresa un RUT válido.");
-    return;
-  }
-
-  if (!courseVerify) {
-    showLinkError("Por favor selecciona el curso oficial del estudiante.");
     return;
   }
 
@@ -316,7 +335,50 @@ async function handleLinkSubmit(e) {
   dom.linkError.style.display = "none";
 
   try {
-    // 1. Consultar a la tabla alumnos exigiendo RUT y Curso
+    // 1. Verificar si el RUT ingresado corresponde a un Apoderado Titular
+    const apoderadosNomina = await fetchApoderadosNomina();
+    const cleanLower = rutClean.toLowerCase();
+
+    if (apoderadosNomina && apoderadosNomina.by_apoderado_rut && apoderadosNomina.by_apoderado_rut[cleanLower]) {
+      const apodData = apoderadosNomina.by_apoderado_rut[cleanLower];
+      const hijos = apodData.estudiantes || [];
+
+      if (hijos.length > 0) {
+        // Consultar los datos completos de todos sus hijos en la tabla alumnos
+        const rutsList = hijos.map(h => cleanRut(h.rut)).filter(Boolean);
+        const rutsFilter = rutsList.map(r => `"${r}"`).join(",");
+        const queryHijosUrl = `${SUPABASE_URL}/rest/v1/alumnos?rut=in.(${rutsFilter})&select=*`;
+
+        const respH = await fetch(queryHijosUrl, { method: "GET", headers: HEADERS, mode: "cors" });
+        if (respH.ok) {
+          const alumnosData = await respH.json();
+          alumnosData.forEach(al => {
+            const existingIdx = state.students.findIndex(s => cleanRut(s.rut) === cleanRut(al.rut));
+            if (existingIdx < 0) {
+              state.students.push(al);
+            }
+          });
+
+          if (state.students.length > 0) {
+            saveStoredStudents();
+            state.activeIndex = 0;
+            setLoading(false);
+            showToast(`¡Bienvenido/a ${apodData.nombre_apoderado}! Se vincularon sus estudiantes.`);
+            showDashboard();
+            fetchStudentData();
+            return;
+          }
+        }
+      }
+    }
+
+    // 2. Si no es RUT de apoderado, buscar como RUT de estudiante (requiere curso)
+    if (!courseVerify) {
+      showLinkError("Para vincular por RUT de estudiante, por favor selecciona su curso oficial.");
+      setLoading(false);
+      return;
+    }
+
     const queryUrl = `${SUPABASE_URL}/rest/v1/alumnos?rut=ilike.${encodeURIComponent(rutClean)}&curso=eq.${encodeURIComponent(courseVerify)}&select=*`;
 
     const resp = await fetch(queryUrl, { method: "GET", headers: HEADERS, mode: "cors" });
@@ -334,7 +396,7 @@ async function handleLinkSubmit(e) {
 
     const alumno = data[0];
 
-    // 2. Verificar si ya está vinculado
+    // 3. Verificar si ya está vinculado
     const existingIdx = state.students.findIndex(s => cleanRut(s.rut) === cleanRut(alumno.rut));
     if (existingIdx >= 0) {
       state.activeIndex = existingIdx;

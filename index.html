@@ -70,27 +70,27 @@
 
           <form id="formLinkStudent" class="link-form" autocomplete="off">
             <div class="form-group">
-              <label for="inputRutStudent">RUT del Estudiante</label>
+              <label for="inputRutStudent">RUT del Apoderado o Estudiante</label>
               <div class="input-wrapper">
                 <input 
                   type="text" 
                   id="inputRutStudent" 
                   name="rut"
-                  placeholder="Ej: 24.221.613-K" 
+                  placeholder="Ej: 17.982.237-7 o 24.221.613-K" 
                   maxlength="12"
                   inputmode="text" 
                   required
                 >
                 <span class="input-icon">🆔</span>
               </div>
-              <small class="helper-text">Ingresa el RUT con o sin puntos y guión.</small>
+              <small class="helper-text">💡 Ingresa tu RUT de apoderado para ver a todos tus hijos, o el RUT de tu estudiante.</small>
             </div>
 
             <div class="form-group">
-              <label for="selectCourseVerify">Curso del Estudiante <span class="required-star" style="color:#ef4444;font-weight:700;">*</span></label>
+              <label for="selectCourseVerify">Curso del Estudiante <small style="color:#64748b;font-weight:400;">(Solo si buscas por RUT de estudiante)</small></label>
               <div class="input-wrapper">
-                <select id="selectCourseVerify" required>
-                  <option value="" disabled selected>Selecciona el curso...</option>
+                <select id="selectCourseVerify">
+                  <option value="" selected>Selecciona el curso (si buscas por estudiante)...</option>
                   <option value="NT1 A">NT1 A (Pre-Kínder)</option>
                   <option value="NT2 A">NT2 A (Kínder)</option>
                   <option value="1° Básico A">1° Básico A</option>
@@ -335,6 +335,6 @@
 
   </div>
 
-  <script src="js/app.js?v=4"></script>
+  <script src="js/app.js?v=5"></script>
 </body>
 </html>
