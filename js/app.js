@@ -710,13 +710,21 @@ const ASIG_NOMBRE_OFICIAL = {
 
 /**
  * Normaliza el nombre de una asignatura al nombre oficial del ministerio.
+ * Si es 2° ciclo (7° u 8° básico), unifica cualquier variante de Lenguaje a "Lengua y Literatura".
+ * Si es 1° ciclo (1° a 6° básico), unifica a "Lenguaje y Comunicación".
  * Si no hay mapeo conocido, retorna el nombre tal como vino de la BD.
  */
-function normalizarAsig(nombre) {
+function normalizarAsig(nombre, esSegundoCiclo = false) {
   const s = (nombre || "").trim();
   const key = s.toLowerCase()
     .replace(/á/g, "a").replace(/é/g, "e").replace(/í/g, "i")
     .replace(/ó/g, "o").replace(/ú/g, "u").replace(/ü/g, "u");
+
+  // Regla especial de unificación para Lenguaje / Lengua y Literatura según ciclo
+  if (key === "lenguaje" || key === "lenguaje y comunicacion" || key === "lengua" || key === "lengua y literatura") {
+    return esSegundoCiclo ? "Lengua y Literatura" : "Lenguaje y Comunicación";
+  }
+
   // Buscar en el mapa (sin tildes para tolerancia)
   const mapKey = Object.keys(ASIG_NOMBRE_OFICIAL).find(
     k => k.replace(/á/g, "a").replace(/é/g, "e").replace(/í/g, "i")
@@ -729,8 +737,8 @@ function normalizarAsig(nombre) {
  * Retorna el índice de orden oficial de una asignatura (para ordenar tarjetas).
  * Normaliza el nombre antes de buscar.
  */
-function ordenAsig(nombre) {
-  const normalizado = normalizarAsig(nombre);
+function ordenAsig(nombre, esSegundoCiclo = false) {
+  const normalizado = normalizarAsig(nombre, esSegundoCiclo);
   const idx = ASIG_ORDEN_OFICIAL.findIndex(
     a => a.toLowerCase() === normalizado.toLowerCase()
   );
@@ -775,13 +783,16 @@ function getConceptBadgeClass(conc) {
 // ── Render Calificaciones (Notas) ──────────────────────────────────────────
 function renderGrades() {
   const sem = state.currentSemester;
+  const current = state.students[state.activeIndex];
+  const curso = (current?.curso || "").toLowerCase();
+  const esSegundoCiclo = curso.includes("7") || curso.includes("8");
 
   // Construir mapa de notas: { "NombreOficial" -> rowData } por semestre
   // (para acceso rápido al mostrar la grilla del catálogo)
   const gradesBySemAndAsig = { "1": new Map(), "2": new Map() };
   for (const row of state.grades) {
     const semStr = String(row.semestre || "").trim();
-    const asigOficial = normalizarAsig(row.asignatura || "");
+    const asigOficial = normalizarAsig(row.asignatura || "", esSegundoCiclo);
     if (semStr === "1" || semStr === "2") {
       gradesBySemAndAsig[semStr].set(asigOficial, row);
     }

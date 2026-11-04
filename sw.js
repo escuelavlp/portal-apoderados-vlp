@@ -1,10 +1,10 @@
 // Service Worker para Portal Apoderados - Escuela Villa Las Peñas
-const CACHE_NAME = 'villa-las-penas-apoderados-v6';
+const CACHE_NAME = 'villa-las-penas-apoderados-v7';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './css/styles.css?v=4',
-  './js/app.js?v=5',
+  './js/app.js?v=6',
   './manifest.json',
   './assets/insignia.png'
 ];
